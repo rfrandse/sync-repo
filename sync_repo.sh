@@ -40,17 +40,18 @@ cat <<-EOM
 Usage: `basename $0`
 
 OPTIONS:
- -a,  --auto            Autmatically proceeds without user input. Will delete target directory
+ -a,  --auto            (AUTO) no user input keeps local repo dir with "c" continue "d" will delete repo directory
  -ur, --urepo           Upstream repo name   (from)
  -dr, --drepo           Downstream repo name (to)(defaults same as upstream)
- -sp,  --source-project Source Project name in Github public or IBM (openbmc) 
- -tp,  --target-project Target Project name in Github public or IBM (openbmc)
- -b,  --branch          set repo branch in target (default 920.10)
- -up, --upstream-url    upstream url (from github.com or github.ibm.com)
- -dn, --downstream-url  downstream url (to github.com or github.ibm.com)
- -bp, --base-path       location where clones will be created (default /esw/san5/<user name>)
- -ud, --update-repo     if exists update / refresh downstream target repo 
+ -sp,  --source-project (S_PROJECT) Source Project name in Github public or IBM (openbmc) 
+ -tp,  --target-project (T_PROJECT) Target Project name in Github public or IBM (openbmc)
+ -b,  --branch          (BRANCH) set repo branch in target (default 920.10)
+ -up, --upstream-url    (UPSTREAM_URL) (from github.com or github.ibm.com)
+ -dn, --downstream-url  (DOWNSTREAM_URL) (to github.com or github.ibm.com)
+ -bp, --base-path       (BASE_PATH) directory where local repo will be created (default /esw/san5/<user name>)
+ -ud, --update-repo     (DOWNSTREAM_REPO_NAME) if exists update / refresh downstream target repo 
  -c,  --curl-config     <path>/<curl_config> file example: /esw/san5/`whoami`/curl_config_ibm
+ -e,  --ext             (EXT) target directory add a designated extention. (repo name + ext) 
  -h,  --help            Display help/usage statement
 
 examples: 
@@ -69,7 +70,7 @@ CURL_CONFIG=""
 BRANCH=920.10
 USER=`whoami`
 BASE_PATH=/esw/san5/$USER
-
+EXT=""
 
 if  test -f $BASE_PATH/sync_repo.cfg ; then
     . ${BASE_PATH}/sync_repo.cfg
@@ -83,7 +84,7 @@ show_progress "Location: $BASE_PATH"
 while [ $# -gt 0 ]; do
 	case $1 in
     -a | --auto )
-			AUTO=1; shift;;
+			shift; AUTO=$1; shift;;
 		-ur | --urepo )
 			shift; UPSTREAM_REPO_NAME=$1; shift;;
     -dr | --drepo )
@@ -102,9 +103,13 @@ while [ $# -gt 0 ]; do
 			shift; 
       BASE_PATH=$1; shift;;
     -ud | --update-repo )
-			shift; UPDATE_DOWNST/REAM_REPO=1; shift;;
+			shift; UPDATE_DOWNSTREAM_REPO=1; shift;;
     -c | --curl-config )
 			shift; CURL_CONFIG=$1; shift;;
+    -e | --ext )      
+			shift; 
+      EXT=$1; shift;;
+
 		-h | --help )
 			usage;:
 			exit 1;;
@@ -177,8 +182,8 @@ else
     curl -s -K $CURL_CONFIG -d "{\"name\":\"$DOWNSTREAM_REPO_NAME\"}" > /dev/null
 fi
 
-if [ -e $BASE_PATH/$DOWNSTREAM_REPO_NAME ]; then 
-    error "local directory $BASE_PATH/$DOWNSTREAM_REPO_NAME exists. "
+if [ -e $BASE_PATH/$DOWNSTREAM_REPO_NAME$EXT ]; then 
+    error "local directory $BASE_PATH/$DOWNSTREAM_REPO_NAME$EXT exists. "
     error "ERROR EXECUTING: MAIN LINE:$LINENO"
         show_progress "AUTO=$AUTO"
         if [ $AUTO ]; then
@@ -188,34 +193,32 @@ if [ -e $BASE_PATH/$DOWNSTREAM_REPO_NAME ]; then
                 read  choice
         fi
 	if [ $choice = "d" ]; then
-		rm -rf $BASE_PATH/$DOWNSTREAM_REPO_NAME
+		rm -rf $BASE_PATH/$DOWNSTREAM_REPO_NAME$EXT
 	elif [ $choice = "c" ]; then
 		SKIP_CLONE=1;
-    cd  $BASE_PATH/${DOWNSTREAM_REPO_NAME}
-    show_progress "Location:  $BASE_PATH/${DOWNSTREAM_REPO_NAME}"
+    cd  $BASE_PATH/${DOWNSTREAM_REPO_NAME}$EXT
+    show_progress "Location:  $BASE_PATH/${DOWNSTREAM_REPO_NAME}$EXT"
 	else
     exit_error "$LINENO: You chose to exit, value selected: $choice"
 	fi
 fi
 
 if [ ! $SKIP_CLONE ]; then
-    mkdir $BASE_PATH/${DOWNSTREAM_REPO_NAME}
+    mkdir $BASE_PATH/${DOWNSTREAM_REPO_NAME}$EXT
 
-    if [ ! -e $BASE_PATH/$DOWNSTREAM_REPO_NAME ]; then
-        error "$BASE_PATH/$DOWNSTREAM_REPO_NAME does not exist"
+    if [ ! -e $BASE_PATH/$DOWNSTREAM_REPO_NAME$EXT ]; then
+        error "$BASE_PATH/$DOWNSTREAM_REPO_NAME$EXT does not exist"
         error "ERROR EXECUTING: MAIN LINE:$LINENO"
     fi
 
-    cd  $BASE_PATH/${DOWNSTREAM_REPO_NAME}
-    show_progress "Location:  $BASE_PATH/${DOWNSTREAM_REPO_NAME}"
+    cd  $BASE_PATH/${DOWNSTREAM_REPO_NAME}$EXT
+    show_progress "Location:  $BASE_PATH/${DOWNSTREAM_REPO_NAME}$EXT"
     git init
     git remote add downstream "$DOWNSTREAM_CLONE_PROJECT_REPO".git
     git status
 fi
 
 REMOTE_LIST=`git remote`
-echo $REMOTE_LIST
-echo `expr "$REMOTE_LIST" : '.*\(downstream\)'`
 
 check_remote=`expr "$REMOTE_LIST" : '.*\(upstream\)'`
 echo $check_remote
